@@ -1,32 +1,54 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
+	fmt.Println("Starting server on port 6379...")
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		fmt.Println("Failed to bind to port 6379:", err)
 		os.Exit(1)
 	}
-
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-	}
-	defer conn.Close()
+	defer l.Close()
 
 	for {
-		_, err = conn.Read(make([]byte, 128))
+		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error reading request: ", err.Error())
+			fmt.Println("Error accepting connection:", err)
+			continue
 		}
-		conn.Write([]byte("+PONG\r\n"))
+
+		go handleConnection(conn) // Handle each connection in a goroutine
+	}
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	buf := make([]byte, 128)
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				fmt.Println("Client disconnected")
+			} else {
+				fmt.Println("Error reading request:", err)
+			}
+			break
+		}
+
+		fmt.Println("Received:", string(buf[:n])) // Log received data
+		_, writeErr := conn.Write([]byte("+PONG\r\n"))
+		if writeErr != nil {
+			fmt.Println("Error writing response:", writeErr)
+			break
+		}
 	}
 }
