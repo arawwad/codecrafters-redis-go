@@ -12,6 +12,8 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp/parser"
 )
 
+var db = map[string]string{}
+
 func main() {
 	fmt.Println("Starting server on port 6379...")
 
@@ -61,7 +63,19 @@ func handleConnection(conn net.Conn) {
 
 		case "ECHO":
 			writeResponse(conn, marshal.MarshalBulkString(cmd[1]))
+
+		case "SET":
+			db[cmd[1]] = cmd[2]
+			writeResponse(conn, marshal.MarshalSimpleString("OK"))
+		case "GET":
+			val, ok := db[cmd[1]]
+			if !ok {
+				writeResponse(conn, []byte(marshal.NullBulkString))
+			} else {
+				writeResponse(conn, marshal.MarshalBulkString(val))
+			}
 		}
+
 	}
 }
 

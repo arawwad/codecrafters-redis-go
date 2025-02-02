@@ -11,3 +11,10 @@ func MarshalBulkString(input string) []byte {
 
 	return []byte(str)
 }
+
+const NullBulkString = "$-1\r\n"
+
+func MarshalSimpleString(input string) []byte {
+	str := fmt.Sprintf("+%s\r\n", input)
+	return []byte(str)
+}
