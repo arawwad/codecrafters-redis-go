@@ -6,6 +6,10 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/resp/marshal"
+	"github.com/codecrafters-io/redis-starter-go/internal/resp/parser"
 )
 
 func main() {
@@ -44,11 +48,28 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 
-		fmt.Println("Received:", string(buf[:n])) // Log received data
-		_, writeErr := conn.Write([]byte("+PONG\r\n"))
-		if writeErr != nil {
-			fmt.Println("Error writing response:", writeErr)
+		p := parser.New(buf[:n])
+		cmd, ok := p.ParseArray()
+		if !ok {
+			fmt.Println("Error parsing command: ", p.Error.Error())
 			break
 		}
+
+		switch strings.ToUpper(cmd[0]) {
+		case "PING":
+			writeResponse(conn, []byte("+PONG\r\n"))
+
+		case "ECHO":
+			writeResponse(conn, marshal.MarshalBulkString(cmd[1]))
+		}
 	}
+}
+
+func writeResponse(conn net.Conn, resp []byte) bool {
+	_, writeErr := conn.Write(resp)
+	if writeErr != nil {
+		fmt.Println("Error writing response:", writeErr)
+		return false
+	}
+	return true
 }
