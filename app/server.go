@@ -6,13 +6,20 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp/parser"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp/types"
 )
 
-var db = map[types.RespType]types.RespType{}
+type dbValue struct {
+	value   types.RespType
+	expires time.Time
+}
+
+var db = map[types.RespType]dbValue{}
 
 func main() {
 	fmt.Println("Starting server on port 6379...")
@@ -65,14 +72,30 @@ func handleConnection(conn net.Conn) {
 			writeResponse(conn, args[0].Marshal())
 
 		case "SET":
-			db[args[0]] = args[1]
+			retention := 10 * time.Hour
+			if len(args) > 2 {
+				switch strings.ToLower(string(args[2].(types.BulkString))) {
+				case "px":
+					duration, _ := strconv.Atoi(string(args[3].(types.BulkString)))
+					retention = time.Duration(duration) * time.Millisecond
+				}
+			}
+			db[args[0]] = dbValue{
+				value:   args[1],
+				expires: time.Now().Add(retention),
+			}
 			writeResponse(conn, types.SimpleString("OK").Marshal())
 		case "GET":
 			val, ok := db[args[0]]
 			if !ok {
 				writeResponse(conn, []byte(types.NullBulkString))
 			} else {
-				writeResponse(conn, val.Marshal())
+				if time.Now().After(val.expires) {
+					delete(db, args[0])
+					writeResponse(conn, []byte(types.NullBulkString))
+				} else {
+					writeResponse(conn, val.value.Marshal())
+				}
 			}
 		default:
 			fmt.Println("Error parsing command: unsupported command")
