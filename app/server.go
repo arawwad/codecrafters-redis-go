@@ -62,8 +62,6 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 
-		println(instruction)
-
 		switch instruction {
 		case "PING":
 			writeResponse(conn, types.SimpleString("PONG").Marshal())
@@ -97,6 +95,32 @@ func handleConnection(conn net.Conn) {
 					writeResponse(conn, val.value.Marshal())
 				}
 			}
+		case "INCR":
+			val, ok := db[args[0]]
+			integer := types.Integer(1)
+			str := types.BulkString(1)
+			if !ok {
+				db[args[0]] = dbValue{
+					value: str,
+				}
+				writeResponse(conn, integer.Marshal())
+				return
+			}
+			num := 0
+			str = val.value.(types.BulkString)
+			num, err = strconv.Atoi(string(str))
+			if err != nil {
+				writeResponse(conn, types.SimpleError("ERR value is not an integer or out of range").Marshal())
+				return
+			}
+
+			integer = types.Integer(num + 1)
+			str = types.BulkString(num + 1)
+			db[args[0]] = dbValue{
+				value: str,
+			}
+			writeResponse(conn, integer.Marshal())
+
 		default:
 			fmt.Println("Error parsing command: unsupported command")
 			break
