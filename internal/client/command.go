@@ -10,7 +10,6 @@ import (
 )
 
 type Command interface {
-	name() string
 	Exec(*Client) types.RespType
 }
 
@@ -49,16 +48,14 @@ func ParseCommand(input []byte) (Command, bool) {
 		return Multi{}, true
 	case "EXEC":
 		return Exec{}, true
+	case "DISCARD":
+		return Discard{}, true
 	}
 
 	return nil, false
 }
 
 type Ping struct{}
-
-func (Ping) name() string {
-	return "ping"
-}
 
 func (Ping) Exec(c *Client) types.RespType {
 	return types.SimpleString("PONG")
@@ -72,16 +69,8 @@ func (e Echo) Exec(c *Client) types.RespType {
 	return e.Value
 }
 
-func (Echo) name() string {
-	return "echo"
-}
-
 type Get struct {
 	Key types.RespType
-}
-
-func (Get) name() string {
-	return "get"
 }
 
 func (cmd Get) Exec(c *Client) types.RespType {
@@ -98,10 +87,6 @@ type Set struct {
 	TTL   *time.Duration
 }
 
-func (Set) name() string {
-	return "set"
-}
-
 func (cmd Set) Exec(c *Client) types.RespType {
 	c.Set(cmd.Key, cmd.Value, cmd.TTL)
 	return types.SimpleString("OK")
@@ -111,19 +96,11 @@ type Incr struct {
 	Key types.RespType
 }
 
-func (Incr) name() string {
-	return "incr"
-}
-
 func (cmd Incr) Exec(c *Client) types.RespType {
 	return c.Incr(cmd.Key)
 }
 
 type Multi struct{}
-
-func (Multi) name() string {
-	return "multi"
-}
 
 func (Multi) Exec(c *Client) types.RespType {
 	c.transactionMode = true
@@ -131,10 +108,6 @@ func (Multi) Exec(c *Client) types.RespType {
 }
 
 type Exec struct{}
-
-func (Exec) name() string {
-	return "exec"
-}
 
 func (Exec) Exec(c *Client) types.RespType {
 	if !c.transactionMode {
@@ -148,6 +121,18 @@ func (Exec) Exec(c *Client) types.RespType {
 	}
 
 	return types.Array(result)
+}
+
+type Discard struct{}
+
+func (Discard) Exec(c *Client) types.RespType {
+	if !c.transactionMode {
+		return types.SimpleError("ERR DISCARD without MULTI")
+	}
+	c.transactionMode = false
+	c.queue = []*Command{}
+
+	return types.SimpleString("OK")
 }
 
 func getTTL(args []types.RespType) *time.Duration {

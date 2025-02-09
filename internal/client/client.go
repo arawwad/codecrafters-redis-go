@@ -32,14 +32,6 @@ func (c *Client) Respond(resp types.RespType) {
 	}
 }
 
-func (c *Client) OK() {
-	c.Respond(types.SimpleString("OK"))
-}
-
-func (c *Client) PONG() {
-	c.Respond(types.SimpleString("PONG"))
-}
-
 func (c *Client) Queue(cmd *Command) {
 	c.queue = append(c.queue, cmd)
 	c.Respond(types.SimpleString("QUEUED"))
@@ -65,8 +57,11 @@ func (c *Client) HandleConnection() {
 		}
 
 		_, isExec := cmd.(Exec)
+		_, isDiscard := cmd.(Discard)
 
-		if c.transactionMode && !isExec {
+		shouldContinueTransaction := !(isExec || isDiscard)
+
+		if c.transactionMode && shouldContinueTransaction {
 			c.Queue(&cmd)
 		} else {
 			resp := cmd.Exec(c)
