@@ -6,11 +6,10 @@ import (
 	"io"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/resp/parser"
+	"github.com/codecrafters-io/redis-starter-go/internal/command"
+	"github.com/codecrafters-io/redis-starter-go/internal/db"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp/types"
 )
 
@@ -19,7 +18,7 @@ type dbValue struct {
 	expires time.Time
 }
 
-var db = map[types.RespType]dbValue{}
+var DB = db.New()
 
 func main() {
 	fmt.Println("Starting server on port 6379...")
@@ -57,69 +56,33 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 
-		instruction, args, ok := parseCommand(buf[:n])
+		cmd, ok := command.Parse(buf[:n])
+
 		if !ok {
 			break
 		}
 
-		switch instruction {
-		case "PING":
+		switch cmd.(type) {
+		case command.Ping:
 			writeResponse(conn, types.SimpleString("PONG").Marshal())
 
-		case "ECHO":
-			writeResponse(conn, args[0].Marshal())
+		case command.Echo:
+			writeResponse(conn, cmd.(command.Echo).Value.Marshal())
 
-		case "SET":
-			retention := 10 * time.Hour
-			if len(args) > 2 {
-				switch strings.ToLower(string(args[2].(types.BulkString))) {
-				case "px":
-					duration, _ := strconv.Atoi(string(args[3].(types.BulkString)))
-					retention = time.Duration(duration) * time.Millisecond
-				}
-			}
-			db[args[0]] = dbValue{
-				value:   args[1],
-				expires: time.Now().Add(retention),
-			}
+		case command.Set:
+			setCmd := cmd.(command.Set)
+			DB.Set(setCmd.Key, setCmd.Value, setCmd.TTL)
 			writeResponse(conn, types.SimpleString("OK").Marshal())
-		case "GET":
-			val, ok := db[args[0]]
+
+		case command.Get:
+			val, ok := DB.Get(cmd.(command.Get).Key)
 			if !ok {
 				writeResponse(conn, []byte(types.NullBulkString))
-			} else {
-				if time.Now().After(val.expires) {
-					delete(db, args[0])
-					writeResponse(conn, []byte(types.NullBulkString))
-				} else {
-					writeResponse(conn, val.value.Marshal())
-				}
 			}
-		case "INCR":
-			val, ok := db[args[0]]
-			integer := types.Integer(1)
-			str := types.BulkString(1)
-			if !ok {
-				db[args[0]] = dbValue{
-					value: str,
-				}
-				writeResponse(conn, integer.Marshal())
-				return
-			}
-			num := 0
-			str = val.value.(types.BulkString)
-			num, err = strconv.Atoi(string(str))
-			if err != nil {
-				writeResponse(conn, types.SimpleError("ERR value is not an integer or out of range").Marshal())
-				return
-			}
+			writeResponse(conn, val.Marshal())
 
-			integer = types.Integer(num + 1)
-			str = types.BulkString(num + 1)
-			db[args[0]] = dbValue{
-				value: str,
-			}
-			writeResponse(conn, integer.Marshal())
+		case command.Incr:
+			writeResponse(conn, DB.Incr(cmd.(command.Incr).Key).Marshal())
 
 		default:
 			fmt.Println("Error parsing command: unsupported command")
@@ -127,29 +90,6 @@ func handleConnection(conn net.Conn) {
 		}
 
 	}
-}
-
-func parseCommand(input []byte) (string, []types.RespType, bool) {
-	p := parser.New(input)
-	resp, ok := p.Parse()
-	if !ok {
-		fmt.Println("Error parsing command: ", p.Error.Error())
-		return "", nil, false
-	}
-
-	a, ok := resp.(types.Array)
-	if !ok {
-		fmt.Println("Error parsing command: input is not valid Array")
-		return "", nil, false
-	}
-
-	instruction, ok := a[0].(types.BulkString)
-	if !ok {
-		fmt.Println("Error parsing command: Command is not valid BulkString")
-		return "", nil, false
-	}
-
-	return strings.ToUpper(string(instruction)), a[1:], true
 }
 
 func writeResponse(conn net.Conn, resp []byte) bool {
