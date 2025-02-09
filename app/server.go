@@ -83,6 +83,8 @@ func handleConnection(conn net.Conn) {
 
 		case command.Incr:
 			writeResponse(conn, DB.Incr(cmd.(command.Incr).Key).Marshal())
+		case command.Multi:
+			writeResponse(conn, types.SimpleString("OK").Marshal())
 
 		default:
 			fmt.Println("Error parsing command: unsupported command")

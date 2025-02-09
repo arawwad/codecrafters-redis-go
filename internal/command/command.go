@@ -44,6 +44,8 @@ func Parse(input []byte) (Command, bool) {
 		return Set{Key: arr[1], Value: arr[2], TTL: getTTL(arr)}, true
 	case "INCR":
 		return Incr{Key: arr[1]}, true
+	case "MULTI":
+		return Multi{}, true
 	}
 
 	return nil, false
@@ -86,6 +88,12 @@ type Incr struct {
 }
 
 func (Incr) name() string {
+	return "incr"
+}
+
+type Multi struct{}
+
+func (Multi) name() string {
 	return "incr"
 }
 
