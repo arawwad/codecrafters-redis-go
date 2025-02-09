@@ -1,4 +1,4 @@
-package command
+package client
 
 import (
 	"fmt"
@@ -11,9 +11,10 @@ import (
 
 type Command interface {
 	name() string
+	Exec(*Client)
 }
 
-func Parse(input []byte) (Command, bool) {
+func ParseCommand(input []byte) (Command, bool) {
 	p := parser.New(input)
 	resp, ok := p.Parse()
 	if !ok {
@@ -57,8 +58,16 @@ func (Ping) name() string {
 	return "ping"
 }
 
+func (Ping) Exec(c *Client) {
+	c.PONG()
+}
+
 type Echo struct {
 	Value types.RespType
+}
+
+func (e Echo) Exec(c *Client) {
+	c.Respond(e.Value)
 }
 
 func (Echo) name() string {
@@ -73,6 +82,14 @@ func (Get) name() string {
 	return "get"
 }
 
+func (cmd Get) Exec(c *Client) {
+	val, ok := c.Get(cmd.Key)
+	if !ok {
+		c.Respond(types.NullBulkString{})
+	}
+	c.Respond(val)
+}
+
 type Set struct {
 	Key   types.RespType
 	Value types.RespType
@@ -83,6 +100,11 @@ func (Set) name() string {
 	return "set"
 }
 
+func (cmd Set) Exec(c *Client) {
+	c.Set(cmd.Key, cmd.Value, cmd.TTL)
+	c.OK()
+}
+
 type Incr struct {
 	Key types.RespType
 }
@@ -91,10 +113,18 @@ func (Incr) name() string {
 	return "incr"
 }
 
+func (cmd Incr) Exec(c *Client) {
+	c.Respond(c.Incr(cmd.Key))
+}
+
 type Multi struct{}
 
 func (Multi) name() string {
-	return "incr"
+	return "multi"
+}
+
+func (Multi) Exec(c *Client) {
+	c.OK()
 }
 
 func getTTL(args []types.RespType) *time.Duration {

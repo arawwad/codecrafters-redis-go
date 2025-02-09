@@ -60,7 +60,15 @@ func (Boolean) Num() (int, bool) {
 	return 0, false
 }
 
-const NullBulkString = "$-1\r\n"
+type NullBulkString struct{}
+
+func (NullBulkString) Marshal() []byte {
+	return []byte("$-1\r\n")
+}
+
+func (NullBulkString) Num() (int, bool) {
+	return 0, false
+}
 
 type BulkString string
 

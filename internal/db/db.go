@@ -17,16 +17,16 @@ func (val *dbValue) hasExpired() bool {
 	return !val.expires.IsZero() && time.Now().After(val.expires)
 }
 
-type db struct {
+type DB struct {
 	values map[types.RespType]dbValue
 	mu     *sync.RWMutex
 }
 
-func New() db {
-	return db{values: map[types.RespType]dbValue{}, mu: &sync.RWMutex{}}
+func New() DB {
+	return DB{values: map[types.RespType]dbValue{}, mu: &sync.RWMutex{}}
 }
 
-func (db *db) Set(key types.RespType, value types.RespType, ttl *time.Duration) {
+func (db *DB) Set(key types.RespType, value types.RespType, ttl *time.Duration) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	expires := time.Time{}
@@ -39,7 +39,7 @@ func (db *db) Set(key types.RespType, value types.RespType, ttl *time.Duration) 
 	}
 }
 
-func (db *db) Get(key types.RespType) (types.RespType, bool) {
+func (db *DB) Get(key types.RespType) (types.RespType, bool) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -56,7 +56,7 @@ func (db *db) Get(key types.RespType) (types.RespType, bool) {
 	return val.value, true
 }
 
-func (db *db) Incr(key types.RespType) types.RespType {
+func (db *DB) Incr(key types.RespType) types.RespType {
 	val, ok := db.Get(key)
 	if !ok {
 		db.Set(key, types.BulkString("1"), nil)
