@@ -47,6 +47,8 @@ func ParseCommand(input []byte) (Command, bool) {
 		return Incr{Key: arr[1]}, true
 	case "MULTI":
 		return Multi{}, true
+	case "EXEC":
+		return Exec{}, true
 	}
 
 	return nil, false
@@ -127,6 +129,16 @@ func (Multi) Exec(c *Client) {
 	c.OK()
 }
 
+type Exec struct{}
+
+func (Exec) name() string {
+	return "exec"
+}
+
+func (Exec) Exec(c *Client) {
+	c.Respond(types.SimpleError("ERR EXEC without MULTI"))
+}
+
 func getTTL(args []types.RespType) *time.Duration {
 	if len(args) < 3 {
 		return nil
@@ -142,6 +154,5 @@ func getTTL(args []types.RespType) *time.Duration {
 			}
 		}
 	}
-
 	return nil
 }

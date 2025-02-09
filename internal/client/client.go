@@ -14,12 +14,14 @@ type Client struct {
 	conn net.Conn
 	*db.DB
 	transactionMode bool
+	queue           []Command
 }
 
 func New(db *db.DB, conn net.Conn) *Client {
 	return &Client{
-		DB:   db,
-		conn: conn,
+		DB:    db,
+		conn:  conn,
+		queue: []Command{},
 	}
 }
 
@@ -31,7 +33,7 @@ func (c *Client) Respond(resp types.RespType) {
 }
 
 func (c *Client) OK() {
-	c.Respond(types.SimpleString("ok"))
+	c.Respond(types.SimpleString("OK"))
 }
 
 func (c *Client) PONG() {
@@ -52,9 +54,7 @@ func (c *Client) HandleConnection() {
 			}
 			break
 		}
-
 		cmd, ok := ParseCommand(buf[:n])
-
 		if !ok {
 			break
 		}
