@@ -50,6 +50,8 @@ func ParseCommand(input []byte) (Command, bool) {
 		return Exec{}, true
 	case "DISCARD":
 		return Discard{}, true
+	case "TYPE":
+		return Type{Key: arr[1]}, true
 	}
 
 	return nil, false
@@ -133,6 +135,18 @@ func (Discard) Exec(c *Client) types.RespType {
 	c.queue = []*Command{}
 
 	return types.SimpleString("OK")
+}
+
+type Type struct {
+	Key types.RespType
+}
+
+func (cmd Type) Exec(c *Client) types.RespType {
+	val, ok := c.Get(cmd.Key)
+	if !ok {
+		return types.SimpleString("none")
+	}
+	return types.SimpleString(val.Type())
 }
 
 func getTTL(args []types.RespType) *time.Duration {

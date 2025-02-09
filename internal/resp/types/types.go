@@ -9,6 +9,7 @@ import (
 type RespType interface {
 	Marshal() []byte
 	Num() (int, bool)
+	Type() SimpleString
 }
 
 type SimpleString string
@@ -25,6 +26,10 @@ func (s SimpleString) Num() (int, bool) {
 	return 0, false
 }
 
+func (SimpleString) Type() SimpleString {
+	return "string"
+}
+
 type SimpleError string
 
 func (e SimpleError) Marshal() []byte {
@@ -36,6 +41,10 @@ func (SimpleError) Num() (int, bool) {
 	return 0, false
 }
 
+func (SimpleError) Type() SimpleString {
+	return "string"
+}
+
 type Integer int
 
 func (i Integer) Marshal() []byte {
@@ -45,6 +54,10 @@ func (i Integer) Marshal() []byte {
 
 func (i Integer) Num() (int, bool) {
 	return int(i), true
+}
+
+func (Integer) Type() SimpleString {
+	return "string"
 }
 
 type Boolean bool
@@ -60,6 +73,10 @@ func (Boolean) Num() (int, bool) {
 	return 0, false
 }
 
+func (Boolean) Type() SimpleString {
+	return "string"
+}
+
 type NullBulkString struct{}
 
 func (NullBulkString) Marshal() []byte {
@@ -68,6 +85,10 @@ func (NullBulkString) Marshal() []byte {
 
 func (NullBulkString) Num() (int, bool) {
 	return 0, false
+}
+
+func (NullBulkString) Type() SimpleString {
+	return "string"
 }
 
 type BulkString string
@@ -86,6 +107,10 @@ func (s BulkString) Num() (int, bool) {
 	return 0, false
 }
 
+func (BulkString) Type() SimpleString {
+	return "string"
+}
+
 type Array []RespType
 
 func (a Array) Marshal() []byte {
@@ -101,4 +126,8 @@ func (a Array) Marshal() []byte {
 
 func (Array) Num() (int, bool) {
 	return 0, false
+}
+
+func (Array) Type() SimpleString {
+	return "string"
 }
