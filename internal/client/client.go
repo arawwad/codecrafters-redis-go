@@ -14,14 +14,14 @@ type Client struct {
 	conn net.Conn
 	*db.DB
 	transactionMode bool
-	queue           []Command
+	queue           []*Command
 }
 
 func New(db *db.DB, conn net.Conn) *Client {
 	return &Client{
 		DB:    db,
 		conn:  conn,
-		queue: []Command{},
+		queue: []*Command{},
 	}
 }
 
@@ -38,6 +38,11 @@ func (c *Client) OK() {
 
 func (c *Client) PONG() {
 	c.Respond(types.SimpleString("PONG"))
+}
+
+func (c *Client) Queue(cmd *Command) {
+	c.queue = append(c.queue, cmd)
+	c.Respond(types.SimpleString("QUEUED"))
 }
 
 func (c *Client) HandleConnection() {
@@ -58,6 +63,15 @@ func (c *Client) HandleConnection() {
 		if !ok {
 			break
 		}
-		cmd.Exec(c)
+
+		_, isExec := cmd.(Exec)
+
+		if c.transactionMode && !isExec {
+			c.Queue(&cmd)
+		} else {
+			resp := cmd.Exec(c)
+			c.Respond(resp)
+		}
+
 	}
 }
