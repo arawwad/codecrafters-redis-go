@@ -57,6 +57,7 @@ func (db *DB) Get(key types.RespType) (types.RespType, bool) {
 }
 
 func (db *DB) Incr(key types.RespType) types.RespType {
+	// TODO keep the expires value when incrementing
 	val, ok := db.Get(key)
 	if !ok {
 		db.Set(key, types.BulkString("1"), nil)

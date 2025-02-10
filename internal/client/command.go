@@ -9,11 +9,11 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp/types"
 )
 
-type Command interface {
-	Exec(*Client) types.RespType
+type command interface {
+	exec(*Client) types.RespType
 }
 
-func ParseCommand(input []byte) (Command, bool) {
+func parseCommand(input []byte) (command, bool) {
 	p := parser.New(input)
 	resp, ok := p.Parse()
 	if !ok {
@@ -35,47 +35,47 @@ func ParseCommand(input []byte) (Command, bool) {
 
 	switch strings.ToUpper(string(instruction)) {
 	case "PING":
-		return Ping{}, true
+		return pingCmd{}, true
 	case "ECHO":
-		return Echo{Value: arr[1]}, true
+		return echoCmd{Value: arr[1]}, true
 	case "GET":
-		return Get{Key: arr[1]}, true
+		return getCmd{Key: arr[1]}, true
 	case "SET":
-		return Set{Key: arr[1], Value: arr[2], TTL: getTTL(arr)}, true
+		return setCmd{Key: arr[1], Value: arr[2], TTL: getTTL(arr)}, true
 	case "INCR":
-		return Incr{Key: arr[1]}, true
+		return incrCmd{Key: arr[1]}, true
 	case "MULTI":
-		return Multi{}, true
+		return multiCmd{}, true
 	case "EXEC":
-		return Exec{}, true
+		return execCmd{}, true
 	case "DISCARD":
-		return Discard{}, true
+		return discardCmd{}, true
 	case "TYPE":
-		return Type{Key: arr[1]}, true
+		return typeCmd{Key: arr[1]}, true
 	}
 
 	return nil, false
 }
 
-type Ping struct{}
+type pingCmd struct{}
 
-func (Ping) Exec(c *Client) types.RespType {
-	return types.SimpleString("PONG")
+func (pingCmd) exec(c *Client) types.RespType {
+	return pong
 }
 
-type Echo struct {
+type echoCmd struct {
 	Value types.RespType
 }
 
-func (e Echo) Exec(c *Client) types.RespType {
+func (e echoCmd) exec(c *Client) types.RespType {
 	return e.Value
 }
 
-type Get struct {
+type getCmd struct {
 	Key types.RespType
 }
 
-func (cmd Get) Exec(c *Client) types.RespType {
+func (cmd getCmd) exec(c *Client) types.RespType {
 	val, ok := c.Get(cmd.Key)
 	if !ok {
 		return types.NullBulkString{}
@@ -83,35 +83,35 @@ func (cmd Get) Exec(c *Client) types.RespType {
 	return val
 }
 
-type Set struct {
+type setCmd struct {
 	Key   types.RespType
 	Value types.RespType
 	TTL   *time.Duration
 }
 
-func (cmd Set) Exec(c *Client) types.RespType {
+func (cmd setCmd) exec(c *Client) types.RespType {
 	c.Set(cmd.Key, cmd.Value, cmd.TTL)
-	return types.SimpleString("OK")
+	return ok
 }
 
-type Incr struct {
+type incrCmd struct {
 	Key types.RespType
 }
 
-func (cmd Incr) Exec(c *Client) types.RespType {
+func (cmd incrCmd) exec(c *Client) types.RespType {
 	return c.Incr(cmd.Key)
 }
 
-type Multi struct{}
+type multiCmd struct{}
 
-func (Multi) Exec(c *Client) types.RespType {
+func (multiCmd) exec(c *Client) types.RespType {
 	c.transactionMode = true
-	return types.SimpleString("OK")
+	return ok
 }
 
-type Exec struct{}
+type execCmd struct{}
 
-func (Exec) Exec(c *Client) types.RespType {
+func (execCmd) exec(c *Client) types.RespType {
 	if !c.transactionMode {
 		return types.SimpleError("ERR EXEC without MULTI")
 	}
@@ -119,29 +119,29 @@ func (Exec) Exec(c *Client) types.RespType {
 
 	result := []types.RespType{}
 	for _, cmd := range c.queue {
-		result = append(result, (*cmd).Exec(c))
+		result = append(result, (*cmd).exec(c))
 	}
 
 	return types.Array(result)
 }
 
-type Discard struct{}
+type discardCmd struct{}
 
-func (Discard) Exec(c *Client) types.RespType {
+func (discardCmd) exec(c *Client) types.RespType {
 	if !c.transactionMode {
 		return types.SimpleError("ERR DISCARD without MULTI")
 	}
 	c.transactionMode = false
-	c.queue = []*Command{}
+	c.queue = []*command{}
 
-	return types.SimpleString("OK")
+	return ok
 }
 
-type Type struct {
+type typeCmd struct {
 	Key types.RespType
 }
 
-func (cmd Type) Exec(c *Client) types.RespType {
+func (cmd typeCmd) exec(c *Client) types.RespType {
 	val, ok := c.Get(cmd.Key)
 	if !ok {
 		return types.SimpleString("none")

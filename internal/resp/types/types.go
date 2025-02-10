@@ -42,7 +42,7 @@ func (SimpleError) Num() (int, bool) {
 }
 
 func (SimpleError) Type() SimpleString {
-	return "string"
+	return ""
 }
 
 type Integer int
@@ -57,7 +57,7 @@ func (i Integer) Num() (int, bool) {
 }
 
 func (Integer) Type() SimpleString {
-	return "string"
+	return ""
 }
 
 type Boolean bool
@@ -74,7 +74,7 @@ func (Boolean) Num() (int, bool) {
 }
 
 func (Boolean) Type() SimpleString {
-	return "string"
+	return ""
 }
 
 type NullBulkString struct{}
@@ -88,7 +88,7 @@ func (NullBulkString) Num() (int, bool) {
 }
 
 func (NullBulkString) Type() SimpleString {
-	return "string"
+	return ""
 }
 
 type BulkString string
@@ -129,5 +129,5 @@ func (Array) Num() (int, bool) {
 }
 
 func (Array) Type() SimpleString {
-	return "string"
+	return "list"
 }
