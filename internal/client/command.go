@@ -52,6 +52,8 @@ func parseCommand(input []byte) (command, bool) {
 		return discardCmd{}, true
 	case "TYPE":
 		return typeCmd{Key: arr[1]}, true
+	case "XADD":
+		return xAddCmd{key: arr[1], id: arr[2], entryKey: arr[3], entryValue: arr[4]}, true
 	}
 
 	return nil, false
@@ -102,41 +104,6 @@ func (cmd incrCmd) exec(c *Client) types.RespType {
 	return c.Incr(cmd.Key)
 }
 
-type multiCmd struct{}
-
-func (multiCmd) exec(c *Client) types.RespType {
-	c.transactionMode = true
-	return ok
-}
-
-type execCmd struct{}
-
-func (execCmd) exec(c *Client) types.RespType {
-	if !c.transactionMode {
-		return types.SimpleError("ERR EXEC without MULTI")
-	}
-	c.transactionMode = false
-
-	result := []types.RespType{}
-	for _, cmd := range c.queue {
-		result = append(result, (*cmd).exec(c))
-	}
-
-	return types.Array(result)
-}
-
-type discardCmd struct{}
-
-func (discardCmd) exec(c *Client) types.RespType {
-	if !c.transactionMode {
-		return types.SimpleError("ERR DISCARD without MULTI")
-	}
-	c.transactionMode = false
-	c.queue = []*command{}
-
-	return ok
-}
-
 type typeCmd struct {
 	Key types.RespType
 }
@@ -144,9 +111,9 @@ type typeCmd struct {
 func (cmd typeCmd) exec(c *Client) types.RespType {
 	val, ok := c.Get(cmd.Key)
 	if !ok {
-		return types.SimpleString("none")
+		return types.NoneType
 	}
-	return types.SimpleString(val.Type())
+	return val.Type()
 }
 
 func getTTL(args []types.RespType) *time.Duration {

@@ -6,6 +6,14 @@ import (
 	"unicode/utf8"
 )
 
+const (
+	StringType    SimpleString = "string"
+	NoneType      SimpleString = "none"
+	ListType      SimpleString = "list"
+	StreamType    SimpleString = "stream"
+	NotApplicable SimpleString = ""
+)
+
 type RespType interface {
 	Marshal() []byte
 	Num() (int, bool)
@@ -27,7 +35,7 @@ func (s SimpleString) Num() (int, bool) {
 }
 
 func (SimpleString) Type() SimpleString {
-	return "string"
+	return StringType
 }
 
 type SimpleError string
@@ -42,7 +50,7 @@ func (SimpleError) Num() (int, bool) {
 }
 
 func (SimpleError) Type() SimpleString {
-	return ""
+	return NotApplicable
 }
 
 type Integer int
@@ -57,7 +65,7 @@ func (i Integer) Num() (int, bool) {
 }
 
 func (Integer) Type() SimpleString {
-	return ""
+	return NotApplicable
 }
 
 type Boolean bool
@@ -74,7 +82,7 @@ func (Boolean) Num() (int, bool) {
 }
 
 func (Boolean) Type() SimpleString {
-	return ""
+	return NotApplicable
 }
 
 type NullBulkString struct{}
@@ -88,7 +96,7 @@ func (NullBulkString) Num() (int, bool) {
 }
 
 func (NullBulkString) Type() SimpleString {
-	return ""
+	return NotApplicable
 }
 
 type BulkString string
@@ -108,7 +116,7 @@ func (s BulkString) Num() (int, bool) {
 }
 
 func (BulkString) Type() SimpleString {
-	return "string"
+	return StringType
 }
 
 type Array []RespType
@@ -129,5 +137,19 @@ func (Array) Num() (int, bool) {
 }
 
 func (Array) Type() SimpleString {
-	return "list"
+	return ListType
+}
+
+type Stream string
+
+func (s Stream) Marshal() []byte {
+	return []byte{}
+}
+
+func (Stream) Num() (int, bool) {
+	return 0, false
+}
+
+func (Stream) Type() SimpleString {
+	return StreamType
 }

@@ -72,3 +72,15 @@ func (db *DB) Incr(key types.RespType) types.RespType {
 	db.Set(key, types.BulkString(fmt.Sprintf("%d", num+1)), nil)
 	return types.Integer(num + 1)
 }
+
+func (db *DB) AppendToStream(key, id, entryKey, entryValue types.RespType) types.RespType {
+	val, ok := db.Get(key)
+	if !ok {
+		db.Set(key, types.Stream(""), nil)
+		return id
+	}
+	if val.Type() != types.StreamType {
+		return types.SimpleError("WRONGTYPE Operation against a key holding the wrong kind of value")
+	}
+	return id
+}
