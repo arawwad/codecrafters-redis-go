@@ -23,7 +23,7 @@ func (s *Stream) Append(entryKey RespType, entries []StreamEntry) (BulkString, S
 
 	if str == "*" {
 		timeStamp = time.Now()
-		sequenceNumber = s.lastSequenceNumber + 1
+		sequenceNumber = 0
 	} else {
 		idParts := strings.Split(str, "-")
 		if len(idParts) != 2 {
@@ -46,7 +46,7 @@ func (s *Stream) Append(entryKey RespType, entries []StreamEntry) (BulkString, S
 
 		if idParts[1] == "*" {
 			if timeStamp != s.lastTimeStamp {
-				if timeStamp == time.UnixMilli(0) {
+				if timeStamp.UnixMilli() == 0 {
 					sequenceNumber = 1
 				} else {
 					sequenceNumber = 0
