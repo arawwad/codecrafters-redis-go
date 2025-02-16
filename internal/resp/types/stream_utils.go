@@ -37,21 +37,23 @@ func (s *Stream) Append(entryKey RespType, entries []StreamEntry) (BulkString, S
 			if err != nil {
 				return emptyKey, InvalidStreamKeyError
 			}
-			timeStamp = time.Unix(int64(timeStampPart), 0)
+			timeStamp = time.UnixMilli(int64(timeStampPart))
 		}
 
 		if timeStamp.Before(s.lastTimeStamp) {
 			return emptyKey, InvalidOrderOfStreamKey
 		}
 
-		if timeStamp == time.Unix(0, 0) {
-			s.lastSequenceNumber = 0
-		} else if timeStamp.After(s.lastTimeStamp) {
-			s.lastSequenceNumber = -1
-		}
-
 		if idParts[1] == "*" {
-			sequenceNumber = s.lastSequenceNumber + 1
+			if timeStamp != s.lastTimeStamp {
+				if timeStamp == time.UnixMilli(0) {
+					sequenceNumber = 1
+				} else {
+					sequenceNumber = 0
+				}
+			} else {
+				sequenceNumber = s.lastSequenceNumber + 1
+			}
 		} else {
 			sequenceNumberPart, err := strconv.Atoi(idParts[1])
 			if err != nil {
@@ -71,7 +73,7 @@ func (s *Stream) Append(entryKey RespType, entries []StreamEntry) (BulkString, S
 		s.values[entryKey] = entries
 	}
 
-	return BulkString(fmt.Sprintf("%d-%d", timeStamp.Unix(), sequenceNumber)), EmptySimpleError
+	return BulkString(fmt.Sprintf("%d-%d", timeStamp.UnixMilli(), sequenceNumber)), EmptySimpleError
 }
 
 type StreamEntry struct {
