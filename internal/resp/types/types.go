@@ -3,20 +3,26 @@ package types
 import (
 	"fmt"
 	"strconv"
+	"time"
 	"unicode/utf8"
 )
 
 const (
-	StringType    SimpleString = "string"
-	NoneType      SimpleString = "none"
-	ListType      SimpleString = "list"
-	StreamType    SimpleString = "stream"
-	NotApplicable SimpleString = ""
+	StringType              SimpleString = "string"
+	NoneType                SimpleString = "none"
+	ListType                SimpleString = "list"
+	StreamType              SimpleString = "stream"
+	NotApplicable           SimpleString = ""
+	EmptySimpleError        SimpleError  = ""
+	InvalidStreamKeyError   SimpleError  = "ERR Invalid stream ID specified as stream command argument"
+	InvalidOrderOfStreamKey SimpleError  = "ERR The ID specified in XADD is equal or smaller than the target stream top item"
+	MinimumStreamKeyError   SimpleError  = "ERR The ID specified in XADD must be greater than 0-0"
 )
 
 type RespType interface {
 	Marshal() []byte
 	Num() (int, bool)
+	Str() (string, bool)
 	Type() SimpleString
 }
 
@@ -34,6 +40,10 @@ func (s SimpleString) Num() (int, bool) {
 	return 0, false
 }
 
+func (s SimpleString) Str() (string, bool) {
+	return string(s), true
+}
+
 func (SimpleString) Type() SimpleString {
 	return StringType
 }
@@ -49,6 +59,10 @@ func (SimpleError) Num() (int, bool) {
 	return 0, false
 }
 
+func (SimpleError) Str() (string, bool) {
+	return "", false
+}
+
 func (SimpleError) Type() SimpleString {
 	return NotApplicable
 }
@@ -62,6 +76,10 @@ func (i Integer) Marshal() []byte {
 
 func (i Integer) Num() (int, bool) {
 	return int(i), true
+}
+
+func (i Integer) Str() (string, bool) {
+	return strconv.Itoa(int(i)), true
 }
 
 func (Integer) Type() SimpleString {
@@ -81,6 +99,10 @@ func (Boolean) Num() (int, bool) {
 	return 0, false
 }
 
+func (Boolean) Str() (string, bool) {
+	return "", false
+}
+
 func (Boolean) Type() SimpleString {
 	return NotApplicable
 }
@@ -93,6 +115,10 @@ func (NullBulkString) Marshal() []byte {
 
 func (NullBulkString) Num() (int, bool) {
 	return 0, false
+}
+
+func (NullBulkString) Str() (string, bool) {
+	return "", false
 }
 
 func (NullBulkString) Type() SimpleString {
@@ -113,6 +139,10 @@ func (s BulkString) Num() (int, bool) {
 		return num, true
 	}
 	return 0, false
+}
+
+func (s BulkString) Str() (string, bool) {
+	return string(s), true
 }
 
 func (BulkString) Type() SimpleString {
@@ -136,11 +166,27 @@ func (Array) Num() (int, bool) {
 	return 0, false
 }
 
+func (Array) Str() (string, bool) {
+	return "", false
+}
+
 func (Array) Type() SimpleString {
 	return ListType
 }
 
-type Stream string
+func NewStream() *Stream {
+	return &Stream{
+		keys:   make([]RespType, 0),
+		values: make(map[RespType][]StreamEntry),
+	}
+}
+
+type Stream struct {
+	lastTimeStamp      time.Time
+	lastSequenceNumber int
+	keys               []RespType
+	values             map[RespType][]StreamEntry
+}
 
 func (s Stream) Marshal() []byte {
 	return []byte{}
@@ -148,6 +194,10 @@ func (s Stream) Marshal() []byte {
 
 func (Stream) Num() (int, bool) {
 	return 0, false
+}
+
+func (Stream) Str() (string, bool) {
+	return "", false
 }
 
 func (Stream) Type() SimpleString {

@@ -53,7 +53,14 @@ func parseCommand(input []byte) (command, bool) {
 	case "TYPE":
 		return typeCmd{Key: arr[1]}, true
 	case "XADD":
-		return xAddCmd{key: arr[1], id: arr[2], entryKey: arr[3], entryValue: arr[4]}, true
+		var streamEntries []types.StreamEntry
+		cmdLen := len(arr)
+
+		for i := 3; i < cmdLen; i += 2 {
+			streamEntries = append(streamEntries, types.StreamEntry{Key: arr[i], Value: arr[i+1]})
+		}
+
+		return xAddCmd{key: arr[1], id: arr[2], entries: streamEntries}, true
 	}
 
 	return nil, false
@@ -122,7 +129,7 @@ func getTTL(args []types.RespType) *time.Duration {
 	}
 
 	for index, value := range args {
-		if str, ok := value.(types.BulkString); ok && strings.ToLower(string(str)) == "px" {
+		if str, ok := value.Str(); ok && strings.ToLower(str) == "px" {
 			if num, ok := args[index+1].Num(); ok {
 				duration := time.Duration(num) * time.Millisecond
 				return &duration

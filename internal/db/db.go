@@ -66,21 +66,34 @@ func (db *DB) Incr(key types.RespType) types.RespType {
 
 	num, ok := val.Num()
 	if !ok {
-		return types.SimpleError("ERR value is not an integer or out of range")
+		return INVALID_INCREMENT
 	}
 
 	db.Set(key, types.BulkString(fmt.Sprintf("%d", num+1)), nil)
 	return types.Integer(num + 1)
 }
 
-func (db *DB) AppendToStream(key, id, entryKey, entryValue types.RespType) types.RespType {
+func (db *DB) AppendToStream(key, id types.RespType, entries []types.StreamEntry) types.RespType {
+	stream := types.NewStream()
+
 	val, ok := db.Get(key)
-	if !ok {
-		db.Set(key, types.Stream(""), nil)
-		return id
+	if ok {
+		s, ok := val.(types.Stream)
+		if !ok {
+			return WRONGTYPE
+		}
+		stream = &s
 	}
-	if val.Type() != types.StreamType {
-		return types.SimpleError("WRONGTYPE Operation against a key holding the wrong kind of value")
+
+	err := stream.Append(id, entries)
+	if err != types.EmptySimpleError {
+		return err
 	}
+	db.Set(key, *stream, nil)
 	return id
 }
+
+const (
+	WRONGTYPE         = types.SimpleError("WRONGTYPE Operation against a key holding the wrong kind of value")
+	INVALID_INCREMENT = types.SimpleError("ERR value is not an integer or out of range")
+)
