@@ -1,38 +1,33 @@
 package types
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 )
 
-type StreamEntryKey struct {
-	TimeStamp      time.Time
-	SequenceNumber int
-	Value          RespType
-}
-
-func (s *Stream) Append(entryKey RespType, entries []StreamEntry) SimpleError {
+func (s *Stream) Append(entryKey RespType, entries []StreamEntry) (BulkString, SimpleError) {
 	var timeStamp time.Time
 	var sequenceNumber int
+	emptyKey := BulkString("")
 
 	str, ok := entryKey.Str()
 	if !ok || str == "*-*" {
-		return InvalidStreamKeyError
+		return emptyKey, InvalidStreamKeyError
 	}
 
 	if str == "0-0" {
-		return MinimumStreamKeyError
+		return emptyKey, MinimumStreamKeyError
 	}
 
 	if str == "*" {
 		timeStamp = time.Now()
 		sequenceNumber = s.lastSequenceNumber + 1
 	} else {
-
 		idParts := strings.Split(str, "-")
 		if len(idParts) != 2 {
-			return InvalidStreamKeyError
+			return emptyKey, InvalidStreamKeyError
 		}
 
 		if idParts[0] == "*" {
@@ -40,9 +35,19 @@ func (s *Stream) Append(entryKey RespType, entries []StreamEntry) SimpleError {
 		} else {
 			timeStampPart, err := strconv.Atoi(idParts[0])
 			if err != nil {
-				return InvalidStreamKeyError
+				return emptyKey, InvalidStreamKeyError
 			}
 			timeStamp = time.Unix(int64(timeStampPart), 0)
+		}
+
+		if timeStamp.Before(s.lastTimeStamp) {
+			return emptyKey, InvalidOrderOfStreamKey
+		}
+
+		if timeStamp == time.Unix(0, 0) {
+			s.lastSequenceNumber = 0
+		} else if timeStamp.After(s.lastTimeStamp) {
+			s.lastSequenceNumber = -1
 		}
 
 		if idParts[1] == "*" {
@@ -50,14 +55,14 @@ func (s *Stream) Append(entryKey RespType, entries []StreamEntry) SimpleError {
 		} else {
 			sequenceNumberPart, err := strconv.Atoi(idParts[1])
 			if err != nil {
-				return InvalidStreamKeyError
+				return emptyKey, InvalidStreamKeyError
 			} else {
 				sequenceNumber = sequenceNumberPart
 			}
 		}
 
-		if timeStamp.Before(s.lastTimeStamp) || (timeStamp == s.lastTimeStamp && sequenceNumber <= s.lastSequenceNumber) {
-			return InvalidOrderOfStreamKey
+		if timeStamp == s.lastTimeStamp && sequenceNumber <= s.lastSequenceNumber {
+			return emptyKey, InvalidOrderOfStreamKey
 		}
 
 		s.keys = append(s.keys, entryKey)
@@ -66,7 +71,7 @@ func (s *Stream) Append(entryKey RespType, entries []StreamEntry) SimpleError {
 		s.values[entryKey] = entries
 	}
 
-	return EmptySimpleError
+	return BulkString(fmt.Sprintf("%d-%d", timeStamp.Unix(), sequenceNumber)), EmptySimpleError
 }
 
 type StreamEntry struct {

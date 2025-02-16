@@ -85,7 +85,7 @@ func (db *DB) AppendToStream(key, id types.RespType, entries []types.StreamEntry
 		stream = &s
 	}
 
-	err := stream.Append(id, entries)
+	id, err := stream.Append(id, entries)
 	if err != types.EmptySimpleError {
 		return err
 	}
